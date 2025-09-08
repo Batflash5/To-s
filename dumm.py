@@ -1,46 +1,130 @@
 import numpy as np
 import pandas as pd
 
-def transformed_pps_sample(df, amount_col='amount', transform='sqrt',
-                           exclude_bottom_pct=None, exclude_cutoff=None,
-                           n_draw=50, random_state=0):
+def transformed_size(df, amount_col='amount', transform='sqrt'):
+    """Return array of transformed sizes s_i."""
+    if transform == 'sqrt':
+        return np.sqrt(df[amount_col].values.astype(float))
+    elif transform == 'log':
+        return np.log1p(df[amount_col].values.astype(float))
+    elif transform is None or transform == 'raw':
+        return df[amount_col].values.astype(float)
+    else:
+        raise ValueError("transform must be 'sqrt', 'log', 'raw' or None")
+
+# ---------- Linear mapping: pi_i = min(1, c * s_i / s_max) ----------
+def linear_pi(df, amount_col='amount', transform='sqrt', c=1.0):
     """
-    Returns sampled rows with pi_approx and weights using transformed-PPS.
-    - transform: 'sqrt' or 'log' or None (raw)
-    - exclude_bottom_pct: fraction (0-1) to drop lowest amounts (e.g., 0.10 to drop bottom 10%)
-    - exclude_cutoff: alternative absolute cutoff (amount < cutoff dropped). If both provided, cutoff used.
-    - n_draw: number of probabilistic draws (after exclusion)
+    Compute pi_i using linear scaling (no fixed n).
+    - df: DataFrame
+    - c: scaling constant (>=0). Larger c => larger pi's.
+    Returns DataFrame copy with columns: pi_linear, weight_linear.
+    """
+    df2 = df.copy().reset_index(drop=False).rename(columns={'index':'_orig_index'})
+    s = transformed_size(df2, amount_col, transform)
+    smax = s.max() if s.size>0 else 1.0
+    # avoid division by zero
+    if smax <= 0:
+        pi = np.zeros_like(s)
+    else:
+        pi = np.minimum(1.0, c * s / smax)
+    df2['pi_linear'] = pi
+    # avoid infinite weights
+    df2['weight_linear'] = np.where(pi>0, 1.0/pi, np.nan)
+    return df2
+
+def choose_c_by_capture_linear(df, amount_col='amount', transform='sqrt', target_fraction=0.5, c_lo=1e-6, c_hi=1000, tol=1e-6, max_iter=60):
+    """
+    Find c so that expected captured amount >= target_fraction * total_amount,
+    where expected captured amount = sum(amount_i * pi_i(c)) and pi_i uses linear mapping.
+    Uses bisection on c in [c_lo, c_hi].
+    """
+    total = df[amount_col].sum()
+    if total == 0:
+        return c_lo
+    def captured(c):
+        tmp = linear_pi(df, amount_col, transform, c)
+        return (df[amount_col].values * tmp['pi_linear'].values).sum()
+    lo, hi = c_lo, c_hi
+    for _ in range(max_iter):
+        mid = 0.5*(lo+hi)
+        if captured(mid) >= target_fraction * total:
+            hi = mid
+        else:
+            lo = mid
+        if hi - lo < tol:
+            break
+    return 0.5*(lo+hi)
+
+# ---------- Exponential (Poisson-style) mapping: pi_i = 1 - exp(-c * s_i / S) ----------
+def exp_pi(df, amount_col='amount', transform='sqrt', c=1.0):
+    """
+    Compute pi_i using exponential mapping.
+    - S = sum(s_i)
+    - pi_i = 1 - exp(-c * s_i / S)
+    Returns DataFrame copy with columns: pi_exp, weight_exp.
+    """
+    df2 = df.copy().reset_index(drop=False).rename(columns={'index':'_orig_index'})
+    s = transformed_size(df2, amount_col, transform)
+    S = s.sum() if s.size>0 else 1.0
+    if S <= 0:
+        pi = np.zeros_like(s)
+    else:
+        lam = c * s / S
+        # numerical safety
+        lam = np.clip(lam, 0.0, 700.0)  # avoid overflow in exp
+        pi = 1.0 - np.exp(-lam)
+    df2['pi_exp'] = pi
+    df2['weight_exp'] = np.where(pi>0, 1.0/pi, np.nan)
+    return df2
+
+def choose_c_by_capture_exp(df, amount_col='amount', transform='sqrt', target_fraction=0.5, c_lo=1e-8, c_hi=100.0, tol=1e-6, max_iter=60):
+    """
+    Find c by bisection such that expected captured amount (sum amount_i * pi_i(c))
+    >= target_fraction * total_amount. Uses exp_pi mapping.
+    """
+    total = df[amount_col].sum()
+    if total == 0:
+        return c_lo
+    def captured(c):
+        tmp = exp_pi(df, amount_col, transform, c)
+        return (df[amount_col].values * tmp['pi_exp'].values).sum()
+    lo, hi = c_lo, c_hi
+    # Expand hi until captured(hi) >= target (to ensure bracket), but limit expansions
+    for _ in range(40):
+        if captured(hi) >= target_fraction * total:
+            break
+        hi *= 2.0
+    for _ in range(max_iter):
+        mid = 0.5*(lo+hi)
+        if captured(mid) >= target_fraction * total:
+            hi = mid
+        else:
+            lo = mid
+        if hi - lo < tol:
+            break
+    return 0.5*(lo+hi)
+
+# ---------- Sampling draw (independent draws using pi) ----------
+def draw_independent(df_with_pi, pi_col='pi_exp', random_state=None):
+    """
+    Given a dataframe that contains a column with per-unit inclusion probabilities (pi_col),
+    perform independent Bernoulli draws and return sampled rows with their pi and weight.
     """
     rng = np.random.default_rng(random_state)
-    df = df.copy().reset_index(drop=False).rename(columns={'index':'_orig_index'})
-    # optional exclusion
-    if exclude_cutoff is not None:
-        df = df[df[amount_col] >= exclude_cutoff].reset_index(drop=True)
-    elif exclude_bottom_pct is not None:
-        cutoff = df[amount_col].quantile(exclude_bottom_pct)
-        df = df[df[amount_col] >= cutoff].reset_index(drop=True)
-    # compute transformed size
-    if transform == 'sqrt':
-        size = np.sqrt(df[amount_col].values)
-    elif transform == 'log':
-        size = np.log1p(df[amount_col].values)
-    elif transform is None:
-        size = df[amount_col].values.astype(float)
-    else:
-        raise ValueError("transform must be 'sqrt', 'log', or None")
-    # single-draw probability
-    total_size = size.sum()
-    p_single = size / total_size
-    # draw without replacement using p_single
-    n_draw = min(n_draw, len(df))
-    selected_idx = rng.choice(df.index.values, size=n_draw, replace=False, p=p_single)
-    sample = df.loc[selected_idx].copy().reset_index(drop=True)
-    p_i = p_single[selected_idx]
-    # approximate inclusion prob for n_draw draws:
-    pi_approx = np.clip(1.0 - (1.0 - p_i) ** n_draw, 1e-12, 1.0)
-    sample['pi_approx'] = pi_approx
-    sample['weight'] = 1.0 / sample['pi_approx']
-    return sample, df  # sample + sampling frame used
+    df2 = df_with_pi.copy().reset_index(drop=True)
+    pi = df2[pi_col].values.astype(float)
+    u = rng.random(size=len(pi))
+    selected_mask = (u < pi)
+    sampled = df2.loc[selected_mask].copy().reset_index(drop=True)
+    sampled['selected'] = True
+    sampled['weight'] = np.where(sampled[pi_col]>0, 1.0/sampled[pi_col], np.nan)
+    return sampled, df2
 
-# Example usage:
-# sampled, frame_used = transformed_pps_sample(my_df, transform='sqrt', exclude_bottom_pct=0.10, n_draw=50)
+# ---------- Example usage ----------
+# 1) Compute exponentials, choose c for 50% expected dollar capture, then draw:
+# c = choose_c_by_capture_exp(df, amount_col='amount', transform='sqrt', target_fraction=0.50)
+# frame = exp_pi(df, amount_col='amount', transform='sqrt', c=c)
+# sampled, frame_with_pi = draw_independent(frame, pi_col='pi_exp', random_state=1)
+#
+# 2) Or linear mapping: choose c via choose_c_by_capture_linear(...) then same draw with 'pi_linear'.
