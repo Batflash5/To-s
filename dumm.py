@@ -1,130 +1,147 @@
 import numpy as np
 import pandas as pd
+import random
 
-def transformed_size(df, amount_col='amount', transform='sqrt'):
-    """Return array of transformed sizes s_i."""
-    if transform == 'sqrt':
-        return np.sqrt(df[amount_col].values.astype(float))
-    elif transform == 'log':
-        return np.log1p(df[amount_col].values.astype(float))
-    elif transform is None or transform == 'raw':
-        return df[amount_col].values.astype(float)
-    else:
-        raise ValueError("transform must be 'sqrt', 'log', 'raw' or None")
+def emergent_pps_sample(df, amount_col='amount', max_n=29, coverage_target=0.80, seed=None):
+    """
+    Emergent PPS sampling under a sample-size constraint (< max_n).
+    
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Must contain at least [amount_col]. Will create 'orig_index' if missing.
+    amount_col : str
+        Column name with amounts (sizes).
+    max_n : int
+        Maximum allowed sample size (constraint).
+    coverage_target : float
+        Fraction of total amount S that must be covered before stopping.
+    seed : int or None
+        Random seed for reproducibility.
 
-# ---------- Linear mapping: pi_i = min(1, c * s_i / s_max) ----------
-def linear_pi(df, amount_col='amount', transform='sqrt', c=1.0):
+    Returns
+    -------
+    dict with:
+      'sampled_df'       DataFrame of sampled units
+      'certainties_df'   DataFrame of certainty units (pi=1)
+      'inclusion_probs'  Series of inclusion probs (indexed by orig_index)
+      'ht_weights'       Series of Horvitz–Thompson weights = 1/pi
+      'final_n'          Actual sample size
+      'coverage'         Coverage fraction achieved
+      'threshold'        Certainty threshold (S / max_n)
+      'sampled_from_rem' List of indices sampled from remainder
     """
-    Compute pi_i using linear scaling (no fixed n).
-    - df: DataFrame
-    - c: scaling constant (>=0). Larger c => larger pi's.
-    Returns DataFrame copy with columns: pi_linear, weight_linear.
-    """
-    df2 = df.copy().reset_index(drop=False).rename(columns={'index':'_orig_index'})
-    s = transformed_size(df2, amount_col, transform)
-    smax = s.max() if s.size>0 else 1.0
-    # avoid division by zero
-    if smax <= 0:
-        pi = np.zeros_like(s)
-    else:
-        pi = np.minimum(1.0, c * s / smax)
-    df2['pi_linear'] = pi
-    # avoid infinite weights
-    df2['weight_linear'] = np.where(pi>0, 1.0/pi, np.nan)
-    return df2
+    if seed is not None:
+        random.seed(seed)
+        np.random.seed(seed)
 
-def choose_c_by_capture_linear(df, amount_col='amount', transform='sqrt', target_fraction=0.5, c_lo=1e-6, c_hi=1000, tol=1e-6, max_iter=60):
-    """
-    Find c so that expected captured amount >= target_fraction * total_amount,
-    where expected captured amount = sum(amount_i * pi_i(c)) and pi_i uses linear mapping.
-    Uses bisection on c in [c_lo, c_hi].
-    """
-    total = df[amount_col].sum()
-    if total == 0:
-        return c_lo
-    def captured(c):
-        tmp = linear_pi(df, amount_col, transform, c)
-        return (df[amount_col].values * tmp['pi_linear'].values).sum()
-    lo, hi = c_lo, c_hi
-    for _ in range(max_iter):
-        mid = 0.5*(lo+hi)
-        if captured(mid) >= target_fraction * total:
-            hi = mid
-        else:
-            lo = mid
-        if hi - lo < tol:
-            break
-    return 0.5*(lo+hi)
+    df = df.copy()
+    if 'orig_index' not in df.columns:
+        df = df.reset_index().rename(columns={'index': 'orig_index'})
 
-# ---------- Exponential (Poisson-style) mapping: pi_i = 1 - exp(-c * s_i / S) ----------
-def exp_pi(df, amount_col='amount', transform='sqrt', c=1.0):
-    """
-    Compute pi_i using exponential mapping.
-    - S = sum(s_i)
-    - pi_i = 1 - exp(-c * s_i / S)
-    Returns DataFrame copy with columns: pi_exp, weight_exp.
-    """
-    df2 = df.copy().reset_index(drop=False).rename(columns={'index':'_orig_index'})
-    s = transformed_size(df2, amount_col, transform)
-    S = s.sum() if s.size>0 else 1.0
+    S = df[amount_col].sum()
     if S <= 0:
-        pi = np.zeros_like(s)
-    else:
-        lam = c * s / S
-        # numerical safety
-        lam = np.clip(lam, 0.0, 700.0)  # avoid overflow in exp
-        pi = 1.0 - np.exp(-lam)
-    df2['pi_exp'] = pi
-    df2['weight_exp'] = np.where(pi>0, 1.0/pi, np.nan)
-    return df2
+        raise ValueError("Total amount S must be positive.")
 
-def choose_c_by_capture_exp(df, amount_col='amount', transform='sqrt', target_fraction=0.5, c_lo=1e-8, c_hi=100.0, tol=1e-6, max_iter=60):
-    """
-    Find c by bisection such that expected captured amount (sum amount_i * pi_i(c))
-    >= target_fraction * total_amount. Uses exp_pi mapping.
-    """
-    total = df[amount_col].sum()
-    if total == 0:
-        return c_lo
-    def captured(c):
-        tmp = exp_pi(df, amount_col, transform, c)
-        return (df[amount_col].values * tmp['pi_exp'].values).sum()
-    lo, hi = c_lo, c_hi
-    # Expand hi until captured(hi) >= target (to ensure bracket), but limit expansions
-    for _ in range(40):
-        if captured(hi) >= target_fraction * total:
+    # Certainty threshold
+    threshold = S / max_n
+    cert_mask = df[amount_col] >= threshold - 1e-12
+    certainties_df = df[cert_mask].copy().set_index('orig_index')
+
+    inclusion_probs = pd.Series(0.0, index=df['orig_index'], dtype=float)
+    for idx in certainties_df.index:
+        inclusion_probs.at[idx] = 1.0
+
+    included_amount = certainties_df[amount_col].sum()
+    coverage_cert = included_amount / S
+
+    # Stop if certainties already meet coverage target or max_n
+    if coverage_cert >= coverage_target or len(certainties_df) >= max_n:
+        ht_weights = pd.Series(np.where(inclusion_probs > 0, 1.0/inclusion_probs, np.nan),
+                               index=inclusion_probs.index)
+        return {
+            'sampled_df': certainties_df,
+            'certainties_df': certainties_df,
+            'inclusion_probs': inclusion_probs,
+            'ht_weights': ht_weights,
+            'final_n': len(certainties_df),
+            'coverage': coverage_cert,
+            'threshold': threshold,
+            'sampled_from_rem': []
+        }
+
+    # Work with remainder
+    remaining = df[~cert_mask].copy().reset_index(drop=True)
+    S_rem = remaining[amount_col].sum()
+    slots = max_n - len(certainties_df)
+    step = S_rem / slots
+    u = random.random() * step
+    thresholds = np.array([u + k * step for k in range(slots)])
+    cums = remaining[amount_col].cumsum().values
+    idxs = np.searchsorted(cums, thresholds, side='right')
+    idxs = np.clip(idxs, 0, len(remaining)-1)
+
+    chosen = remaining.iloc[sorted(set(idxs))].copy().sort_values(amount_col, ascending=False)
+
+    sampled_from_rem = []
+    for _, row in chosen.iterrows():
+        sampled_from_rem.append(row['orig_index'])
+        included_amount += row[amount_col]
+        if included_amount / S >= coverage_target:
             break
-        hi *= 2.0
-    for _ in range(max_iter):
-        mid = 0.5*(lo+hi)
-        if captured(mid) >= target_fraction * total:
-            hi = mid
-        else:
-            lo = mid
-        if hi - lo < tol:
-            break
-    return 0.5*(lo+hi)
 
-# ---------- Sampling draw (independent draws using pi) ----------
-def draw_independent(df_with_pi, pi_col='pi_exp', random_state=None):
-    """
-    Given a dataframe that contains a column with per-unit inclusion probabilities (pi_col),
-    perform independent Bernoulli draws and return sampled rows with their pi and weight.
-    """
-    rng = np.random.default_rng(random_state)
-    df2 = df_with_pi.copy().reset_index(drop=True)
-    pi = df2[pi_col].values.astype(float)
-    u = rng.random(size=len(pi))
-    selected_mask = (u < pi)
-    sampled = df2.loc[selected_mask].copy().reset_index(drop=True)
-    sampled['selected'] = True
-    sampled['weight'] = np.where(sampled[pi_col]>0, 1.0/sampled[pi_col], np.nan)
-    return sampled, df2
+    sampled_idx = list(certainties_df.index) + sampled_from_rem
+    n_rem_actual = len(sampled_from_rem)
 
-# ---------- Example usage ----------
-# 1) Compute exponentials, choose c for 50% expected dollar capture, then draw:
-# c = choose_c_by_capture_exp(df, amount_col='amount', transform='sqrt', target_fraction=0.50)
-# frame = exp_pi(df, amount_col='amount', transform='sqrt', c=c)
-# sampled, frame_with_pi = draw_independent(frame, pi_col='pi_exp', random_state=1)
-#
-# 2) Or linear mapping: choose c via choose_c_by_capture_linear(...) then same draw with 'pi_linear'.
+    # Approximate pi for remainder
+    if n_rem_actual > 0 and S_rem > 0:
+        pi_rem_vals = (n_rem_actual * remaining[amount_col] / S_rem).clip(upper=1.0)
+        for rk, val in zip(remaining['orig_index'], pi_rem_vals.values):
+            inclusion_probs.at[rk] = float(val)
+
+    ht_weights = pd.Series(np.where(inclusion_probs > 0, 1.0/inclusion_probs, np.nan),
+                           index=inclusion_probs.index)
+    sampled_df = df[df['orig_index'].isin(sampled_idx)].set_index('orig_index')
+    coverage_final = included_amount / S
+
+    return {
+        'sampled_df': sampled_df,
+        'certainties_df': certainties_df,
+        'inclusion_probs': inclusion_probs,
+        'ht_weights': ht_weights,
+        'final_n': len(sampled_idx),
+        'coverage': coverage_final,
+        'threshold': threshold,
+        'sampled_from_rem': sampled_from_rem
+    }
+
+# ================================
+# Example usage (function calling)
+# ================================
+
+# Suppose you already have a DataFrame `df` with an 'amount' column:
+# df = pd.read_csv("your_population.csv")
+
+res = emergent_pps_sample(df, amount_col='amount', max_n=29, coverage_target=0.80, seed=2025)
+
+# ================================
+# Output interpretation
+# ================================
+print("Certainty threshold (amount >=):", res['threshold'])
+print("Final sample size:", res['final_n'])
+print("Coverage achieved:", round(res['coverage']*100, 2), "%")
+
+print("\nSampled rows (by amount):")
+print(res['sampled_df'].sort_values('amount', ascending=False)[['id','amount']])
+
+# Build full output with probs + weights
+inclusion_probs = res['inclusion_probs'].reindex(df['orig_index'])
+ht_weights = res['ht_weights'].reindex(df['orig_index'])
+df_out = df.copy()
+df_out['inclusion_prob'] = inclusion_probs.values
+df_out['ht_weight'] = ht_weights.values
+df_out['is_sampled'] = df['orig_index'].isin(res['sampled_df'].index)
+
+# Save to CSV
+df_out.to_csv("emergent_pps_output.csv", index=False)
+print("\nSaved full output with inclusion probs & weights to emergent_pps_output.csv")
