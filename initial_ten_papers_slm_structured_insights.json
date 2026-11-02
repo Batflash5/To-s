@@ -1,0 +1,308 @@
+[
+    {
+        "primary_justification": "To make machine intelligence more accessible, affordable, and efficient for everyday tasks; for resource-efficient deployment on personal devices such as desktops, smartphones, and wearables; to democratize access to machine intelligence; and to excel in certain domain-specific tasks, especially on resource-constrained devices.",
+        "training_methodology": "The SLMs are transformer-based, decoder-only language models with 100M\u20135B parameters. Training involves innovations in architectures, training datasets, and training algorithms. Architectural innovations include various self-attention mechanisms (MHA, MQA, GQA, MLA), FFN types (Standard, Gated), activation functions (ReLU, GELU, GELUtanh, SiLU), layer normalization (LayerNorm, RMSNorm), and vocabulary size. Specific architectural innovations include parameter sharing (embedding-lm head sharing, layer-wise attention/FFN sharing) and layer-wise parameter scaling (e.g., OpenELM). Nonlinearity compensation techniques like series activation functions in FFN and augmented shortcuts in MHA are also used. Training datasets include The Pile, FineWeb-Edu, StarCoder, Cosmopedia, RefinedWeb, RedPajama, Dolma, WuDaoCorpora, RoBERTa CCNewsV2, PushShift.io Reddit, DCLM-baseline, and CulturaX, often utilizing model-based data filtering. SLMs are frequently 'over-trained' with large amounts of tokens (typically over 1.5T). Training algorithms include Maximal Update Parameterization (\u00b5P), Knowledge Distillation, and Two Stage Pre-training Strategy.",
+        "performance_tradeoffs": "SLMs are known to have performance saturation issues with over-training. There is a significant gap in tasks requiring complex reasoning or logic, particularly in mathematics, compared to LLMs. Smaller models experience a significant drop in recognition accuracy as context length increases, and some small SLMs show a decrease in performance with in-context learning. Achieving powerful SLMs for resource-constrained devices often requires investing more training-time compute resources.",
+        "target_use_cases": [
+            "Modern smart devices",
+            "Desktops",
+            "Smartphones",
+            "Wearables",
+            "Low-end IoT gadgets",
+            "Smartwatches",
+            "Tablets",
+            "Third-party mobile apps",
+            "iPhones",
+            "iPads",
+            "Domain-specific tasks",
+            "Edge AI devices",
+            "Drones",
+            "Small robots"
+        ],
+        "key_metrics": [
+            "100M\u20135B parameters",
+            "70 state-of-the-art open-source SLMs surveyed",
+            "57 popular SLMs benchmarked",
+            "Model performance improved by 10.4% (commonsense reasoning), 13.5% (problem-solving), and 13.5% (mathematics) from 2022 to 2024",
+            "LLaMA-7B series average improvement of 7.5%",
+            "Phi family achieves 67.6% in commonsense reasoning and 72.4% in problem-solving",
+            "Phi-3-mini demonstrates a 14.5% lead over LLaMA 3.1 in mathematics",
+            "SmolLM achieves 64.2% in commonsense reasoning",
+            "DCLM-1B achieves 63.8% in commonsense reasoning",
+            "In-context learning with 5 shots improves performance by 2.1% on average",
+            "Gemma 2 shows a 4.8% increase in accuracy with in-context learning",
+            "LaMini shows a decrease of over 2% in performance with in-context learning",
+            "Qwen1.5-0.5B long context accuracy: 22.13%",
+            "Qwen2-0.5B long context accuracy: 43.84%",
+            "Llama3.2-3B long context accuracy: 57.81%",
+            "Qwen2.5-3B long context accuracy: 91.71%",
+            "Inference latency (first token time, decode latency per token)",
+            "Memory footprints (275MB to 2456MB for 0.1B to 3B models)",
+            "Energy consumption",
+            "Qwen1.5-0.5B has 25.4% more parameters than Qwen2-0.5B but runs 31.9% faster on Jetson Orin NX 16GB",
+            "Quantization reduces decode latency by up to 75% and no less than 17%",
+            "Q4 K M quantization reduces prefill latency by an average of 50%"
+        ],
+        "source_file": "2409.15790v3 - Small Language Models Survey Measurements and Insights.pdf"
+    },
+    {
+        "primary_justification": "High computational demands, significant deployment costs, environmental impact, and privacy concerns associated with Large Language Models (LLMs) and Multimodal Large Language Models (MLLMs). Small Language Models (SLMs) aim to reduce these barriers and increase accessibility.",
+        "training_methodology": "The training involves a novel pre- and post-training pipeline. For SLMs, pre-training uses 900 billion tokens of high-quality source code and reasoning-oriented text, processed through heuristic filtering, reasoning-oriented text recall (using Fasttext models), global MinHash deduplication, two-step quality assessment, and token-level decontamination. This phase is based on the LLaMA-3.2 1B architecture, trained for one epoch with a learning rate of 1.4e-3, batch size of 2048, and sequence length of 4096 tokens, utilizing 5760 GPU hours. An annealing phase follows, training on 40 billion tokens of additional high-quality reasoning data (including synthetic data generated by LLMs with rejection sampling/sandbox validation) for one epoch. Post-training involves Supervised Fine-tuning (SFT) using meticulously curated datasets for instruction-following, reasoning, and code. This includes public datasets and synthesized data via instruction evolution, response generation (Qwen-2.5-32B-Instruct with 'step-by-step' reasoning), rejection sampling, and quality control. SFT is applied using the Llama 3 chat template with cross-entropy loss, fine-tuned for 4 epochs with a learning rate of 2e-5, batch size of 128, cosine learning rate scheduler, and maximum sequence length of 4096 tokens. For Multimodal SLMs (MSLMs), the architecture integrates a SigLip-So400m vision encoder with the InfiR-1B-Base language model, connected by an MLP visual projector. Multimodal pre-training exclusively trains the MLP projector to align backbones using a large dataset of captions and cleaned data (Vista model for similarity filtering). Multimodal instruction-tuning is divided into stages: general vision reasoning (using 14 domains of instruction-tuning datasets and synthesized data), multimodal math reasoning (using datasets like InfiMM-WebMath-40B and ChatGPT-synthesized CoT-PoT data), and operator-system reasoning (a two-stage SFT framework for GUI comprehension and advanced reasoning with 45K synthetic samples). Training details for MSLMs involve unfreezing ViT parameters and training the ViT and adapter in the first SFT sub-stage, then unfreezing all parameters for challenging samples in the second SFT sub-stage.",
+        "performance_tradeoffs": "Not specified. The paper focuses on achieving competitive reasoning abilities and state-of-the-art performance while minimizing the typical tradeoffs associated with smaller model sizes, rather than explicitly listing sacrifices.",
+        "target_use_cases": [
+            "Deployment on edge devices",
+            "Real-world operational system tasks",
+            "General vision reasoning for image-related problems",
+            "Multimodal math reasoning",
+            "Complex GUI interactions"
+        ],
+        "key_metrics": [
+            "InfiR-1B-Base and InfiR-1B-Instruct achieve state-of-the-art performance at the 1B parameter scale",
+            "Training completed in under 6000 GPU hours (specifically 5760 GPU hours)",
+            "Reasoning-related average score improvements of 2.26x (InfiR-1B-Base) and 1.33x (InfiR-1B-Instruct) over Llama3.2-1B-Base and Llama3.2-1B-Instruct, respectively",
+            "InfiR-VL-1.6B achieves state-of-the-art performance in the Android World scenario with a 28% accuracy increment compared to the best SOTA among small models",
+            "InfiR-1B-Instruct exceeds Llama-3.2-1B-Instruct by more than 26 points on GSM8K, 16 points on MATH, 19 points on HumanEval, and 7 points on MBPP",
+            "Models comprise fewer than 2 billion parameters (InfiR-1B-Base/Instruct are 1B, InfiR-VL-1.6B is 1.6B)",
+            "Pre-training on 900 billion tokens, annealing on 40 billion tokens",
+            "Training utilized 64 H800 GPUs"
+        ],
+        "source_file": "2502.11573v1 - InfiR  Crafting Effective Small Language Models and Multimodal Small Language Models in Reasoning.pdf"
+    },
+    {
+        "primary_justification": "The primary challenges include domain-specific knowledge Privacy, constrained computing resources, inherent model heterogeneity between the LLM and SLMs, particularly when aligning distributions of output logits, and the mismatch between the tokenizers of different LLM and SLMs. The framework aims for the simultaneous mutual enhancement of both the server\u2019s LLM and clients\u2019 SLMs.",
+        "training_methodology": "FedMKT is a parameter-efficient federated mutual knowledge transfer framework. It leverages LoRA to fine-tune the server\u2019s LLM and clients\u2019 SLMs. The methodology involves knowledge distillation, selective mutual knowledge transfer (termed DualMinCE), and bidirectional token alignment using minimum edit distance (MinED). Clients train their LoRA adapters on private datasets, and both server and clients fine-tune adapters on a shared public dataset.",
+        "performance_tradeoffs": "Not specified",
+        "target_use_cases": [
+            "NLP text generation tasks",
+            "domain-specific applications",
+            "QA tasks",
+            "instruction-following tasks"
+        ],
+        "key_metrics": [
+            "LLaMa2-7B (server LLM)",
+            "GPT-2-xlarge (1.5B) (client SLM)",
+            "OPT-1.3B (client SLM)",
+            "Bloom-1.1B (client SLM)",
+            "LLaMa2-1.3B (client SLM)",
+            "LLM achieves approximately 96% of centralized fine-tuning performance"
+        ],
+        "source_file": "2406.02224v4 - FedMKT Federated Mutual Knowledge Transfer for Large and Small Language Models.pdf"
+    },
+    {
+        "primary_justification": "To purify large language models (LLMs) from negative effects such as copyright infringement, data poisoning, and privacy violations caused by uncurated training data, by ensembling them with benign small language models (SLMs), while preserving the LLMs' standard performance.",
+        "training_methodology": "The benign SLMs used in the experiments are pretrained public SLMs (e.g., CodeLlama 7B, StarCoder 3B, Llama2 7B, Pythia 160M, Pythia 1B). Training SLMs from scratch on purified datasets was considered resource-intensive and beyond the scope of this research. The paper focuses on the ensemble strategy using these existing pretrained SLMs.",
+        "performance_tradeoffs": "For copyright infringement mitigation, there is a minor trade-off in standard performance (e.g., pass@10 score of 0.485 compared to 0.493 for LLM, while reducing IC8 by 87.0%). For data poisoning mitigation, standard performance can even be enhanced (e.g., LAMBADA accuracy reaching 0.768, higher than the LLM's 0.763, while EM score significantly decreases). For PII leakage mitigation, the trade-off in standard performance is more obvious (e.g., SciQ accuracy dropping by approximately 13.7% for an 85.5% reduction in LC score).",
+        "target_use_cases": [
+            "mitigating copyright infringement in large code models",
+            "mitigating data poisoning in general LLMs",
+            "mitigating privacy violations (PII leakage) in general LLMs",
+            "practical deployment of LLMs",
+            "meeting dynamic demands set by changing copyright standards and regulations",
+            "real-world deployed large models",
+            "accelerating inference processes"
+        ],
+        "key_metrics": [
+            "SLM sizes ranging from 160M to 7B parameters",
+            "LLM sizes ranging from 2.8B to 15.5B parameters",
+            "IC8 score reduced to 0.024 (87.0% reduction) while maintaining pass@10 score of 0.485",
+            "IC8 score further decreased to 0",
+            "IC4 reduced to 1.391 (54.1% reduction)",
+            "pass@100 score reached 0.889, higher than LLM's 0.878",
+            "LAMBADA accuracy reached 0.768, higher than LLM's 0.763",
+            "EM score decreased to 9.947 from LLM's 62.863",
+            "PC4 score for untrusted LLM (75 steps) is 6.216",
+            "PC4 score for untrusted LLM (25 steps) is 0.374",
+            "PC4 score for benign SLM is 0.033",
+            "SciQ accuracy dropped from 0.842 to 0.727 (13.7% decrease)",
+            "LC score declined from 0.433 to 0.063 (85.5% reduction)",
+            "PC8 as 0.033 (with dynamic ensemble weights)"
+        ],
+        "source_file": "2402.14845v1 - Purifying Large Language Models by Ensembling a Small Language Model.pdf"
+    },
+    {
+        "primary_justification": "The Wave Network is needed to address the limitations of existing token embedding methods that primarily focus on local semantics, the computational expense of dot products in Transformer architectures, and the significant resource demands (hardware, data, time) of large language models (LLMs). It aims to provide an ultra-small language model that can approach or surpass the performance of LLMs on specific tasks with reduced computational demands.",
+        "training_methodology": "The Wave Network generates initial token embeddings randomly using torch.nn.embedding in Pytorch, assigning values across 768 dimensions. These embeddings are used to create two variants of wave representations via a linear layer, which are then modulated through multiplication. The resulting representation passes through a feed-forward layer and a normalization layer. The model is trained for four epochs with a learning rate of 1e-3 and a batch size of 64 (for accuracy comparison) or 32 (for other experiments).",
+        "performance_tradeoffs": "The Wave Network achieves accuracy comparable to or approaching that of the BERT base model, but with a slight reduction in absolute accuracy. For example, on AG News, it achieves 91.66% accuracy with wave modulation compared to BERT base's 94.64%. On DBpedia14, it achieves 98.05% compared to BERT base's 99.28%, and on IMDB, 87.02% compared to BERT base's 93.94%. This slight accuracy difference is traded for significant reductions in resource usage.",
+        "target_use_cases": [
+            "resource-limited devices",
+            "scalable NLP applications",
+            "real-time environments",
+            "mobile devices",
+            "embedded systems",
+            "text classification (AG News, DBpedia14, IMDB)"
+        ],
+        "key_metrics": [
+            "2.4-million-parameter small language model",
+            "90.91% accuracy with wave interference (AG News)",
+            "91.66% accuracy with wave modulation (AG News)",
+            "outperforming a single Transformer layer by 19.23% (interference) and 19.98% (modulation) on AG News",
+            "approaching 94.64% accuracy of BERT base model (AG News)",
+            "reduces video memory usage by 77.34% compared to BERT base",
+            "reduces training time by 85.62% compared to BERT base",
+            "0.30 GB VRAM (Wave network interference, AG News)",
+            "0.32 GB VRAM (Wave network modulation, AG News)",
+            "146.90 seconds training time (Wave network interference, AG News)",
+            "147.02 seconds training time (Wave network modulation, AG News)",
+            "98.05% accuracy (Wave network modulation, DBpedia14)",
+            "0.30 GB VRAM (Wave network modulation, DBpedia14)",
+            "991.15 seconds training time (Wave network modulation, DBpedia14)",
+            "87.02% accuracy (Wave network modulation, IMDB)",
+            "0.37 GB VRAM (Wave network modulation, IMDB)",
+            "119.96 seconds training time (Wave network modulation, IMDB)",
+            "768 dimensions for token embeddings"
+        ],
+        "source_file": "2411.02674v4 - Wave Network An UltraSmall Language Model.pdf"
+    },
+    {
+        "primary_justification": "Existing knowledge graph integration methods for language models often rely on proprietary or extremely large models, limiting accessibility and scalability. Small Language Models (SLMs) are constrained by their limited ability to traverse and reason over knowledge graphs, especially in low-resource settings. The paper aims to enhance SLM effectiveness in KGQA without requiring large models or extensive training.",
+        "training_methodology": "The approach leverages existing small- to medium-sized language models (0.5B to 8B parameters) in a training-free framework (Think-on-Graph). To address SLM limitations in knowledge graph exploration, lightweight, pre-trained passage retrieval models (SentenceBERT and GTR, both approximately 110 million parameters) are integrated in a zero-shot, plug-and-play manner, requiring no additional training or fine-tuning for the specific KGQA task.",
+        "performance_tradeoffs": "Not specified",
+        "target_use_cases": [
+            "knowledge graph question answering (KGQA)",
+            "low-resource settings",
+            "practical settings for end users or system deployers with access only to small- or medium-sized language models for inference",
+            "real-world settings"
+        ],
+        "key_metrics": [
+            "SLMs ranging in size from 0.5B to 8B parameters",
+            "exploration modules (SentenceBERT and GTR) have approximately 110 million parameters",
+            "evaluation on ComplexWebQuestions (CWQ) requiring up to 4-hop reasoning",
+            "evaluation on WebQSP primarily involving 1- to 2-hop reasoning tasks",
+            "exact match (EM) score as primary evaluation metric",
+            "Qwen2-0.5b with GTR improved CWQ EM from 0.081 to 0.123",
+            "Gemma2-2b with GTR improved CWQ EM from 0.140 to 0.152",
+            "Phi-3-mini-3.8b with GTR improved CWQ EM from 0.270 to 0.291",
+            "Qwen2-7b with GTR improved CWQ EM from 0.300 to 0.331",
+            "Llama-3-8b with GTR improved CWQ EM from 0.296 to 0.325"
+        ],
+        "source_file": "2509.07399v1 - The Role of Exploration Modules in Small Language Models for Knowledge Graph Question Answering.pdf"
+    },
+    {
+        "primary_justification": "The need for local, privacy-preserving processing of sensitive clinical data (Protected Health Information - PHI) due to regulatory constraints and the high cost and infrastructure demands of large, cloud-based LLMs, especially in resource-constrained settings like dental schools and practice-based research networks.",
+        "training_methodology": "The methodology involves a four-stage self-contained framework: 1. Candidate SLMs are screened using self-generated instruction prompts, with self-prompt performance serving as a task-specific selection signal. 2. Each selected model iteratively generates, verifies, refines, and evaluates its own entity-specific prompts without external models or seed prompts. 3. Inference is performed using a two-stage, multi-prompt ensemble procedure combining sentence-level Boolean screening with union-based entity extraction. 4. Selected models are further adapted using QLoRA-based supervised fine-tuning (SFT) followed by direct preference optimization (DPO). SFT and DPO utilize 4-bit NF4 quantization, bfloat16 computation, double quantization, and LoRA with rank 16 applied to q_proj, k_proj, v_proj, and o_proj modules. DPO uses preference pairs constructed from incorrect SFT predictions.",
+        "performance_tradeoffs": "Supervised fine-tuning (SFT) increased recall but encouraged over-extraction, leading to reduced precision. Direct preference optimization (DPO) was used to recalibrate this balance by improving precision while largely preserving recall gains.",
+        "target_use_cases": [
+            "clinical named-entity recognition (NER) in dental notes",
+            "reuse of clinical information for research and quality improvement",
+            "learning health system development",
+            "privacy-sensitive clinical NER more broadly",
+            "dental schools",
+            "practice-based research networks",
+            "resource-constrained settings"
+        ],
+        "key_metrics": [
+            "SLMs defined as models with fewer than roughly 30 billion parameters",
+            "Qwen2.5-14B-Instruct with DPO achieved 0.864 micro F1",
+            "Qwen2.5-14B-Instruct with DPO achieved 0.837 macro F1",
+            "Prompt optimization validation F1 score threshold of 0.8",
+            "Predicted entity counted as correct if similarity to gold-standard annotation reached at least 80% (using partial_ratio in RapidFuzz)",
+            "Single-prompt inference for Qwen2.5-7B-Instruct produced unstable performance with micro F1 ranging from 0.534 to 0.657 and macro F1 from 0.541 to 0.601"
+        ],
+        "source_file": "2605.04221v2 - SelfPrompting Small Language Models for PrivacySensitive Clinical Information Extraction.pdf"
+    },
+    {
+        "primary_justification": "The rise of Small Language Models (SLMs) offers new opportunities for resource-constrained users to serve models with cutting-edge performance, as serving Large Language Models (LLMs) is computationally and memory demanding. The small memory footprint of SLMs allows for reaching Pareto-optimal throughput within the resource capacity of a single accelerator, making AI more accessible.",
+        "training_methodology": "The paper primarily focuses on serving, not training. However, it mentions that the OPT models used were pretrained using the self-supervised causal language modeling objective mainly over a large amount of English text. It also references research suggesting that curated datasets play an important role in training high-performance models.",
+        "performance_tradeoffs": "Not specified",
+        "target_use_cases": [
+            "resource-constrained users",
+            "online serving scenarios",
+            "multi-model serving",
+            "serving SLMs on smaller devices",
+            "providing multiple users with separate GPU resources"
+        ],
+        "key_metrics": [
+            "OPT models ranging from 125M to 13B parameters",
+            "OPT 1.3B, a request with 512 input tokens and 256 output tokens requires 50 MB for KV cache",
+            "a batch of 512 requests demands at most 25.6 GB of memory space to store the KV cache",
+            "4 NVIDIA A100 GPUs",
+            "Each GPU has 40GB of HBM and a GPU memory bandwidth of 1555GB/s",
+            "vLLM engine reserves 90% of HBM, resulting in a maximum memory allocation of 36GB for a single device",
+            "500 requests from the ShareGPT dataset",
+            "prompt of each request is composed by 512 input tokens, and generation is limited to 256 output tokens",
+            "KV pairs of up to 768 tokens in the KV cache, divided in blocks of 16 tokens",
+            "Maximum batch size for OPT-125M (250 MB) is 512 on a 40 GB A100 GPU",
+            "Maximum batch size for OPT-1.3B (2.6 GB) is 256 on a 40 GB A100 GPU",
+            "Maximum batch size for OPT-2.7B (5.4 GB) is 128 on a 40 GB A100 GPU",
+            "Maximum batch size for OPT-6.7B (13.4 GB) is 64 on a 40 GB A100 GPU",
+            "Maximum batch size for OPT-13B (26 GB) is 16 on a 40 GB A100 GPU",
+            "maximum SM occupancy barely reaching 40%",
+            "throughput up to ~25 req/s",
+            "latency up to ~25s",
+            "average GPU utilization ranging from ~10% to ~90%",
+            "average power usage ranging from ~50W to ~250W"
+        ],
+        "source_file": "2404.03353v3 - Towards Pareto Optimal Throughput in Small Language Model Serving.pdf"
+    },
+    {
+        "primary_justification": "SLMs offer significant sustainability benefits due to lower computational and energy requirements, enabling real-time use on consumer-grade hardware without cloud infrastructure. This makes them cost-effective, privacy-preserving, and environmentally responsible, facilitating scalable, personalized, and course-aligned learning experiences. They also achieve curriculum consistency, minimize erroneous information, and allow for easy customization and future development due to their open-source architecture.",
+        "training_methodology": "The AI teaching assistants were developed using open-source SLMs augmented with a Retrieval-Augmented Generation (RAG) pipeline. This involved indexing official course curriculum (teaching materials, lecture slides) into a vector store, pre-processing slides (PDF to text, removing visuals), generating textual descriptions for images using GPT-4o mini, and creating the vector store with Chroma and OpenAI embeddings. The system utilized the LangChain framework and employed prompt engineering, including explicit system messages and a fixed text added to user queries to guide students through steps rather than providing direct solutions. Model parameters, such as temperature, were set to 0.4.",
+        "performance_tradeoffs": "The use of SLMs inherently restricted the system's capabilities due to their limited number of parameters and smaller context windows, hindering reasoning over longer passages. Resource constraints prevented testing and deploying larger open-source models (exceeding 17B parameters), necessitating a focus on lightweight models, which involved potential trade-offs in accuracy or depth of response. The generalizability of results is limited to mathematics courses.",
+        "target_use_cases": [
+            "AI teaching assistants",
+            "Educational institutions",
+            "Scaling personalized learning",
+            "Curriculum-based guidance",
+            "Higher education",
+            "Locally hosted AI tutors",
+            "Mathematics, statistics, and linear algebra courses",
+            "Multiple courses or departments"
+        ],
+        "key_metrics": [
+            "SLMs with 7-17 billion parameters",
+            "Hallucination rate dropped from 37.19% (without RAG) to 0% (with RAG)",
+            "Three SLMs (LLaMA 4, Phi-4, DeepSeek-R1) matched GPT-4o's performance on theoretical questions (average 20.6 out of 21)",
+            "Gemma 3 surpassed GPT-4o on assignment questions, averaging 27.9 successful responses out of 29",
+            "IBM Granite 3.3 averaged 26.2 correct responses out of 29 on assignment questions",
+            "Real-time inference",
+            "Running on consumer-grade GPUs or institution-owned servers",
+            "Running on a single GPU server",
+            "Evaluated using 50 multi-turn theory and course assignment tasks"
+        ],
+        "source_file": "2510.02347v1 - Small Language Models for Curriculumbased Guidance.pdf"
+    },
+    {
+        "primary_justification": "SLMs are needed due to their efficiency and performance with minimal computational resources, addressing the resource-intensiveness (compute, data, specialized hardware) of LLMs. They aim to retain accuracy and adaptability under constraints like training/inference hardware, data availability, bandwidth, or generation time, enabling privacy, cost reduction, and deployment on consumer devices.",
+        "training_methodology": "Model Architectures (lightweight designs, efficient self-attention approximations, neural architecture search); Training Techniques (efficient pre-training including mixed precision training, memory-efficient optimizers like Adafactor and Sophia, gradient clipping, initialization strategies, distributed computing with ZeRO/FSDP; parameter-efficient fine-tuning like LoRA, Prompt Tuning, Llama-Adapter, Dynamic Adapters; data augmentation like AugGPT, Evol-Instruct, Reflection-tuning, FANNO, LLM2LLM); Model Compression Techniques (pruning including unstructured, structured, and n:m pruning; quantization including layer-wise weight-only, weight and activation, K/V Cache Quantization, SmoothQuant, SpinQuant, and quantization-aware training; knowledge distillation from single/multiple teachers, with modified distillation loss, sequence-level distillation loss, layer-wise distillation, universal logit distillation loss, combined with pruning, and using rationales/reasoning chains as supervision).",
+        "performance_tradeoffs": "Memory-efficient training methods like quantization-aware training are often slower than their full-precision counterparts. Model compression aims to reduce model size and latency without sacrificing significant accuracy, implying minor accuracy sacrifices may occur. Privacy-preserving methods involve a trade-off between privacy and accuracy, measured by noise level.",
+        "target_use_cases": [
+            "on-device deployment",
+            "mobile devices",
+            "edge devices",
+            "embedded systems",
+            "consumer devices",
+            "real-time interaction",
+            "content generation and processing",
+            "question answering",
+            "text classification",
+            "natural language understanding",
+            "sentiment analysis",
+            "medical tasks",
+            "low-resource languages",
+            "privacy-sensitive data"
+        ],
+        "key_metrics": [
+            "4.3x size reduction (MobileBERT)",
+            "5.5x speedup (MobileBERT)",
+            "more than 96 (DistilBERT, TinyBERT)",
+            "58M-parameter model (BabyLLaMA)",
+            "345M-parameter model (BabyLLaMA-2)",
+            "1.1B parameters (TinyLLaMA)",
+            "0.5B-parameter model (MobilLLaMA)",
+            "self-attention complexity reduction from O(N^2) to O(N log N) (Reformer)",
+            "self-attention complexity reduction from O(N^2) to O(N) (linear attention mechanisms, low-rank matrix approximation)",
+            "linear scaling with input length (Longformer)",
+            "Inference Time",
+            "Throughput",
+            "Peak Memory Usage",
+            "Memory Footprint",
+            "Compression Ratio",
+            "Privacy Budget",
+            "Noise Level",
+            "Energy Efficiency Ratio",
+            "Thermal Efficiency",
+            "Idle Power Consumption"
+        ],
+        "source_file": "2410.20011v1 - A Survey of Small Language Models.pdf"
+    }
+]
